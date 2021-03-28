@@ -26,13 +26,3 @@ export default {
   }
 };
 </script>
-
-<style>
-    .card-group {
-        background: lightgrey;
-        display: flex;
-        padding: 5px;
-        position: relative;
-    }
-
-</style>

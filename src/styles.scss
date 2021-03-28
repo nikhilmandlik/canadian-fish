@@ -1,1 +1,221 @@
 @import 'card-styles';
+
+.card {
+    border-radius: 5px;
+    cursor: pointer;
+    display: inline-block;
+    width: 100px;
+    height: 145px;
+    
+    &.is-missing:hover {
+        top: -20px;
+    }
+}
+
+.cards-collapse {
+    position: absolute;
+}
+
+.cards-expand {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    
+    .card {
+        margin: 5px;
+    }
+}
+
+.card-group {
+    background: lightgrey;
+    display: flex;
+    padding: 5px;
+    position: relative;
+}
+
+.card:hover {
+    z-index: 10;
+}
+
+.card.is-missing {
+    background-color: #66716d;
+    background-blend-mode: multiply;
+    
+    .missing-msg, .msg {
+        bottom: 0;
+        color: white;
+        padding: 5px;
+        position: absolute;
+        text-align: center;
+        visibility: hidden;
+        width: 90px;
+        z-index: 3;
+    }
+
+    &:not(.is-selected):hover {
+        .missing-msg {
+            visibility: visible;
+        }
+    }
+}
+
+.card.is-selected {
+    box-shadow: #1b1b1b 2px 2px 9px 0px;
+    top: -20px;
+    background-blend-mode: unset;
+    z-index: 2;
+    
+    .missing-msg {
+        color: black;
+        visibility: hidden;
+    }
+
+    .msg {
+        color: black;
+        top: -25px;
+        visibility: visible;
+    }
+}
+
+.column {
+    display: flex;
+    width: 950px;
+}
+
+.contents {
+    position: relative;
+    width: 100%;
+    max-height: 500px;
+    flex-grow: 1;
+}
+
+.hex {
+    fill: red;
+}
+
+.layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-rows: 1fr 1fr 1fr 1fr;
+    align-items: center;
+    width: 100%;
+
+    grid-template-areas: 
+    ". player-4  ."
+    "player-3 main-msg player-5"
+    "player-2 main-msg player-6"
+    ". player-1 ."
+}
+
+.main-msg {
+    border: 1px solid black;
+    grid-area: main-msg;
+    display: block;
+    text-align: center;
+    overflow: auto;
+    height: 200px;
+    text-align: start;
+
+    div {
+        padding-bottom: 3px;
+    }
+}
+
+.main-view {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.player {
+    color: black;
+    text-align: center;
+
+    &.has-turn {
+        .player-info {
+            background: aqua;
+        }
+    }
+}
+
+.player-1 {
+    grid-area: player-1;
+}
+
+.player-2 {
+    grid-area: player-2;
+}
+
+.player-3 {
+    grid-area: player-3;
+}
+
+.player-4 {
+    grid-area: player-4;
+}
+
+.player-5 {
+    grid-area: player-5;
+}
+
+.player-6 {
+    grid-area: player-6;
+}
+
+.player-cards {
+    position: relative;
+    width: 100%;
+    height: 75px;
+    margin: auto;
+    overflow-x: auto;
+
+    .player-card {
+        background-image: url('../assets/card-face.jpg');
+        background-size: 50px 75px;
+        border: 1px solid #c5c5c5;
+        border-radius: 5px;
+        display: inline-block;
+        width: 50px;
+        height: 75px;
+    }
+
+    .player-card-temp {
+        width: 20px;
+        height: 75px;
+        writing-mode: vertical-rl;
+        text-orientation: mixed;
+        position: absolute;
+        left: 0px;
+        font-size: 10px;
+    }
+}
+
+.player-menu {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 45px;
+}
+
+.player-msg {
+    text-align: center;
+}
+
+.row {
+    display: flex;
+    width: 950px;
+    height: 97px;
+}
+
+.team-a {
+    color: red;
+}
+
+.team-b {
+    color: green;
+}
+
+.user-cards {
+    height: 145px;
+    margin: 10px;
+    padding: 10px;
+}

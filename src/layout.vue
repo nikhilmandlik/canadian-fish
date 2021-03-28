@@ -1,39 +1,37 @@
 <template>
     <div class="main-view">
-        <div class="header">
-            <div>Fish</div>
-            <div>
-                <button>
-                    New Game
-                </button>
-                <button>
-                    Main Menu
-                </button>
-            </div>
-        </div>
         <div class="contents">
             <div v-if="playersGrid.length"
                 class="layout">
                 <div
                     v-for="player in playersGrid"
                     :key="player.id"
-                    :class="[{'player': player.name}, player.className]"
+                    :class="[{'player': player.name}, player.number ? `player-${player.number.toString()}` : '', player.className, {'has-turn': playerTurn.id === player.id}]"
                 >
-                    {{ player.name }}
                     <div v-if="player.name"
-                        @click="requestCardFromPlayer(player)">
-                        <div :class="toCssClassName(teamName(player))">{{ teamName(player) }}</div>
+                        class="player-info"
+                        @click="requestCard(player)"
+                    >
+                        <div>
+                            <div class="name">{{ player.name }}</div>
+                            <div :class="toCssClassName(teamName(player))">{{ teamName(player) }}</div>
+                        </div>
                         <div v-if="!player.isUser"
                             class="player-cards">
                             <span v-for="(card,index) in filterPlayerCards(player.cards)"
                                 :key='`${card.face}-${card.value.value}`'
                                 class="player-card"
                                 :style="{position: 'absolute', left: index * 20 + 'px'}"
-                            ><span class="player-card-temp">{{`${card.face}-${card.value.value}`}}</span></span>
+                            >
+                            <span class="player-card-temp">{{`${card.face}-${card.value.value}`}}</span></span>
                         </div>
                     </div>
-                    <div v-else-if="player.className">
-                        {{ sysMsg }}
+                    <div v-else-if="player.className === 'main-msg'">
+                        <div v-for="(msg, index) in getSysMsgs"
+                            :key="index"
+                        >
+                            {{ msg }}
+                        </div>
                     </div>
                     
                 </div>
@@ -51,6 +49,7 @@
                 Declare Suite
             </button>
         </div>
+        <div class="player-msg">{{ userMsg }}</div>
         <div v-if="players.length > 0"
              class="user-cards"
         >
@@ -77,7 +76,7 @@ import Card from "./card.vue"
 import CardGroup from "./card-group.vue"
 
 export default {
-    props: ['players'],
+    props: ['players', 'playerTurn'],
     components: {
         Card,
         CardGroup
@@ -91,7 +90,9 @@ export default {
             playersGrid: [],
             playerCards: [],
             selectedCard: undefined,
-            sysMsg: ''
+            sysMsg: '',
+            sysMsgs: [],
+            userMsg: ''
         }
     },
     computed: {
@@ -104,16 +105,34 @@ export default {
             return this.hideMissing
                 ? this.playerCards.filter(c => c.isPresent)
                 : this.playerCards;
+        },
+        getSysMsgs() {
+            return this.sysMsgs;
         }
     },
     methods: {
         toCssClassName: toCssClassName,
+        askCard() {
+            const players = this.players.filter(p => p.team !== this.playerTurn.team).map(p => p.id);
+            const {
+                playerTo,
+                playerFromId,
+                card
+            } = this.playerTurn.askCard(players);
+
+            const playerFrom = this.players.find(p =>p.id === playerFromId);
+            this.requestCardFromPlayer(playerFrom, playerTo, card);
+        },
         cardSelected({card, event}) {
             event.preventDefault();
             event.stopPropagation();
-            this.selectedCard = card;
 
-            this.sysMsg = 'click on player to request selected card';
+            if (this.playerTurn.id !== this.players[5].id) {
+                this.setUserMsg('Please wait till your turn');
+            } else {
+                this.selectedCard = card;
+                this.setUserMsg('click on player to request selected card');
+            }
         },
         cardStyle(index) {
             if (!this.expand) {
@@ -125,6 +144,9 @@ export default {
         },
         deselectCard() {
             this.selectedCard = undefined;
+        },
+        deselectCardAndResetMessage() {
+            this.selectedCard = undefined;
             this.sysMsg = '';
         },
         expandCards() {
@@ -133,6 +155,11 @@ export default {
         filterPlayerCards(cards = []) {
             return cards.filter(card => card.isPresent);
         },
+        getMessage(player) {
+            return player.className === 'main-msg'
+                ? this.sysMsg
+                : this.userMsg;
+        },
         hexagonPlayersGrid(players) {
             const blank = {
                 name: ' ',
@@ -140,32 +167,60 @@ export default {
             };
 
             this.playersGrid = [
-                new Player(''), players[2], new Player(''),
-                players[3], { className: 'main-msg'}, players[1],
-                players[4], new Player(''), players[0],
-                new Player(''), players[5], new Player(''),
+                players[2],
+                players[3], { className: 'main-msg' }, players[1],
+                players[4], players[0],
+                 players[5],
             ];
         },
         hideMissingCards() {
             this.hideMissing = !this.hideMissing;
         },
-        requestCardFromPlayer(player) {
+        requestCard(playerFrom) {
             if (!this.selectedCard) {
                 return;
             }
 
-            const playerHasCard = player.removeCard(this.selectedCard);
+            this.requestCardFromPlayer(playerFrom, this.players[5], this.selectedCard);
+        },
+        requestCardFromPlayer(playerFrom, playerTo, requestedCard) {
+            const playerHasCard = playerFrom.removeCard(requestedCard);
+            const card = requestedCard.value.class + ' of ' + requestedCard.face;
             if (playerHasCard) {
-                this.players[5].addCard(this.selectedCard);
+                playerTo.addCard(requestedCard);
+
+                this.setSysMsg(`${playerTo.name} successfully drawn ${card} from ${playerFrom.name}`);
+            } else {
+                this.setSysMsg(`${playerTo.name} failed to draw ${card} from ${playerFrom.name}`);
+                clearInterval(this.intervalId);
+                this.$emit('updatePlayerTurn', playerFrom);
+            }
+
+            if (playerHasCard && (playerFrom === this.players[5] || playerTo === this.players[5])) {
                 this.$set(this.playerCards, this.players[5].cards);
             }
 
-            this.$nextTick(() => {
-                console.log('playerHasCard', playerHasCard, this.players[5].cards, this.playerCards);
+            this.players.forEach(player => {
+                player.recordCard(requestedCard, playerFrom.id, playerTo.id, playerHasCard);
             });
         },
+        setSysMsg(msg = '') {
+            if (msg.length > 0) {
+                this.sysMsgs.unshift(msg);
+            }
+
+            setTimeout(() => {
+                this.sysMsg = msg;
+            }, 300);
+        },
+        setUserMsg(msg = '') {
+            this.userMsg = msg;
+            setTimeout(() => {
+                this.userMsg = '';
+            }, 3000);
+        },
         teamName(player) {
-            return player.team ? 'Team A' : 'Team B'
+            return player.team ? 'Team A' : 'Team B';
         },
         updatePlayerCards(players) {
             if (!players || !players.length) {
@@ -173,183 +228,26 @@ export default {
             }
 
             this.playerCards = players[5].cards;
+        },
+        updatePlayerTurn(playerTurn) {
+            if (this.playerTurn.id !== this.players[5].id) {
+                this.intervalId = setInterval(() => {
+                    this.askCard();
+                }, 2000);
+            }
         }
     },
     mounted() {
-        window.addEventListener('click', this.deselectCard.bind(this));
+        window.addEventListener('click', this.deselectCardAndResetMessage.bind(this));
     },
     watch: {
         players: function (value) {
             this.hexagonPlayersGrid(value);
             this.updatePlayerCards(value);
+        },
+        playerTurn: function(playerTurn) {
+            this.updatePlayerTurn(playerTurn);
         }
     }
 }
 </script>
-
-<style lang="scss">
-    .row {
-        display: flex;
-        width: 950px;
-        height: 97px;
-    }
-
-    .column {
-        display: flex;
-        width: 950px;
-    }
-
-    .main-view {
-        display: flex;
-        flex-direction: column;
-        height: 100vh;
-        justify-content: space-between;
-    }
-
-    .cards-expand {
-        display: flex;
-        justify-content: center;
-        flex-wrap: wrap;
-
-        .card {
-            margin: 5px;
-        }
-    }
-
-    .cards-collapse {
-        position: absolute;
-    }
-
-    .card {
-        border-radius: 5px;
-        cursor: pointer;
-        display: inline-block;
-        width: 100px;
-        height: 145px;
-
-        &.is-missing:hover {
-            top: -20px;
-        }
-    }
-
-    .card.is-missing {
-        background-color: #66716d;
-        background-blend-mode: multiply;
-
-        .missing-msg, .msg {
-            bottom: 0;
-            color: white;
-            padding: 5px;
-            position: absolute;
-            text-align: center;
-            visibility: hidden;
-            width: 90px;
-            z-index: 3;
-        }
-
-        &:not(.is-selected):hover {
-            .missing-msg {
-                visibility: visible;
-            }
-        }
-    }
-
-    .card.is-selected {
-        box-shadow: #1b1b1b 2px 2px 9px 0px;
-        top: -20px;
-        background-blend-mode: unset;
-        z-index: 2;
-
-        .missing-msg {
-            color: black;
-            visibility: hidden;
-        }
-
-        .msg {
-            color: black;
-            top: -25px;
-            visibility: visible;
-        }
-    }
-
-    .card:hover {
-        z-index: 10;
-    }
-
-    .contents {
-        position: relative;
-        width: 100%;
-        max-height: 500px;
-        flex-grow: 1;
-    }
-
-    .layout {
-        display: grid;
-        grid-template-columns: 1fr 1fr 1fr;
-        align-items: center;
-        width: 100%;
-        height: 100%;
-    }
-
-    .main-msg {
-        display: block;
-        text-align: center;
-    }
-
-    .player-cards {
-        position: relative;
-        width: 100%;
-        height: 75px;
-        margin: auto;
-        overflow-x: auto;
-
-        .player-card {
-            background-image: url('../assets/card-face.jpg');
-            background-size: 50px 75px;
-            border: 1px solid #c5c5c5;
-            border-radius: 5px;
-            display: inline-block;
-            width: 50px;
-            height: 75px;
-        }
-
-        .player-card-temp {
-            width: 20px;
-            height: 75px;
-            writing-mode: vertical-rl;
-            text-orientation: mixed;
-            position: absolute;
-            left: 0px;
-            font-size: 10px;
-        }
-    }
-
-    .user-cards {
-        height: 145px;
-        margin: 10px;
-        padding: 10px;
-    }
-
-    .player-menu {
-        display: flex;
-        justify-content: center;
-        margin-bottom: 45px;
-    }
-
-    .hex {
-        fill: red;
-    }
-
-    .player {
-        color: black;
-        text-align: center;
-    }
-
-    .team-a {
-        color: red;
-    }
-
-    .team-b {
-        color: green;
-    }
-</style>

@@ -1,7 +1,8 @@
 import { v4 as uuidv4 } from 'uuid';
+import { getRandomIntInclusive } from './util';
 
 export default class Player {
-    constructor(deck, name = '', cards = [], team, isUser = false) {
+    constructor(deck, number, name = '', cards = [], team, isUser = false) {
         this.deck = deck,
         this.id = uuidv4();
         this.cards = this.sortCards(cards);
@@ -9,28 +10,102 @@ export default class Player {
         this.cardGroups = [];
         this.isUser = isUser;
         this.name = name;
+        this.number = number;
         this.team = team;
+        // this.knownCards = 0;
 
-        this.addMissingCards();
+       this.addMissingCards();
+    }
+
+    askCard(players) {
+        let card;
+        let playerFromId;
+
+        let firstNotPresentIndex = -1;
+
+        const knownCards = this.cards.some((c, i) => {
+            if (c.has) {
+                card = c;
+                playerFromId = c.has;
+            }
+
+            if (firstNotPresentIndex < 0 && !c.isPresent) {
+                firstNotPresentIndex = i;
+            }
+
+            return c.has;
+        });
+
+        if (!knownCards) {
+            card = this.cards[firstNotPresentIndex];
+            const index = getRandomIntInclusive(0, players.length - 1);
+            playerFromId = players[index];
+        }
+
+        return {
+            playerTo: this,
+            playerFromId,
+            card
+        };
+    }
+
+    findCard(card) {
+        return this.cards.find(c => c.face === card.face && c.value.value === card.value.value);
+    }
+
+    recordCard(card, playerFromId, playerToId, hasCard) {
+        if (playerFromId === this.id || playerToId === this.id) {
+            return;
+        }
+
+        this.cards.forEach(c => {
+            if (c.face === card.face && c.value.value === card.value.value) {
+                if (hasCard) {
+                    c.has = playerToId;
+                    // this.knownCards++;
+                } else {
+                    c.hasNot = (c.hasNot === undefined)
+                        ? [].concat([[playerFromId]])
+                        : c.hasNot.concat([playerFromId]);
+                }
+            }
+        });
     }
 
     addCard(card) {
         this.cards.forEach(c => {
             if (c.face === card.face && c.value.value === card.value.value) {
                 c.isPresent = true;
+
+                delete c.has;
+                delete c.hasNot;
             }
         });
     }
 
     removeCard(card) {
-        return this.cards.some(c => {
-            const found = c.face === card.face && c.value.value === card.value.value && c.isPresent;
-            if (found) {
-                c.isPresent = false;
+        let cardGroupCount = 0;
+        let found = false;
+        this.cards.forEach(c => {
+            if (c.isPresent && c.cardGroup === card.cardGroup) {
+                cardGroupCount++;
             }
 
-            return found;
+            if (c.face === card.face && c.value.value === card.value.value && c.isPresent) {
+                found = true;
+                c.isPresent = false;
+            }
         });
+
+        if (cardGroupCount === 1) {
+            this.removeCardGroupCards(card.cardGroup);
+        }
+
+        return found;
+    }
+
+    removeCardGroupCards(cardGroup) {
+        this.cards = this.cards.filter(c => c.cardGroup !== cardGroup);
     }
 
     addMissingCards() {
