@@ -12,7 +12,6 @@ export default class Player {
         this.name = name;
         this.number = number;
         this.team = team;
-        // this.knownCards = 0;
 
        this.addMissingCards();
     }
@@ -38,6 +37,8 @@ export default class Player {
 
         if (!knownCards) {
             card = this.cards[firstNotPresentIndex];
+
+            // console.log('not known', card.face, card.value.value, card.hasNot);
             const index = getRandomIntInclusive(0, players.length - 1);
             playerFromId = players[index];
         }
@@ -62,11 +63,12 @@ export default class Player {
             if (c.face === card.face && c.value.value === card.value.value) {
                 if (hasCard) {
                     c.has = playerToId;
-                    // this.knownCards++;
+                } else if (c.hasNot === undefined) {
+                    const hasNot = new Set();
+                    hasNot.add(playerFromId);
+                    c.hasNot = hasNot;
                 } else {
-                    c.hasNot = (c.hasNot === undefined)
-                        ? [].concat([[playerFromId]])
-                        : c.hasNot.concat([playerFromId]);
+                    c.hasNot.add(playerFromId);
                 }
             }
         });
