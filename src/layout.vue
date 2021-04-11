@@ -113,12 +113,23 @@ export default {
     methods: {
         toCssClassName: toCssClassName,
         askCard() {
-            const players = this.players.filter(p => p.team !== this.playerTurn.team).map(p => p.id);
+            const players = this.players
+                .filter(p => p.team !== this.playerTurn.team)
+                .map(p => p.id);
+
+            const cardObject = this.playerTurn.askCard(players);
+            if (!cardObject) {
+                // check if other team member has card and pass turn to them else end game;
+                this.passTurnToTeamMember();
+
+                return;
+            }
+
             const {
                 playerTo,
                 playerFromId,
                 card
-            } = this.playerTurn.askCard(players);
+            } = cardObject;
 
             const playerFrom = this.players.find(p =>p.id === playerFromId);
             this.requestCardFromPlayer(playerFrom, playerTo, card);
@@ -142,12 +153,39 @@ export default {
 
             return {};
         },
+        declareCardGroup(player, cardGroupName) {
+            let success = true;
+            this.players.forEach(p => {
+                if (p.team !== player.team) {
+                    p.cards.forEach(c => {
+                        if (c.cardGroup === cardGroupName && c.isPresent) {
+                            success = false;
+                            console.log(player.name, c.face, c.value.value);
+                        }
+                    });
+                }
+            });
+
+            // TODO: update game score based on success
+
+            const successMsg = success ? 'successfully declared' : 'failed to declare';
+            this.setSysMsg(`${player.name} has ${successMsg} ${cardGroupName}`);
+
+            this.players.forEach(player => {
+                player.removeCardGroupCards(cardGroupName);
+            });
+        },
         deselectCard() {
             this.selectedCard = undefined;
         },
         deselectCardAndResetMessage() {
             this.selectedCard = undefined;
             this.sysMsg = '';
+        },
+        endGame() {
+            clearInterval(this.intervalId);
+            this.setSysMsg('END GAME');
+            console.log('END GAME');
         },
         expandCards() {
             this.expand = !this.expand;
@@ -175,6 +213,17 @@ export default {
         },
         hideMissingCards() {
             this.hideMissing = !this.hideMissing;
+        },
+        passTurnToTeamMember() {
+            const teamMembers = this.players.filter(p => p.team === this.playerTurn.team && !p.endGame);
+            if(!teamMembers.length) {
+                this.endGame();
+
+                return;
+            }
+
+            clearInterval(this.intervalId);
+            this.$emit('updatePlayerTurn', teamMembers[0]);
         },
         requestCard(playerFrom) {
             if (!this.selectedCard) {
@@ -230,11 +279,15 @@ export default {
             this.playerCards = players[5].cards;
         },
         updatePlayerTurn(playerTurn) {
-            if (this.playerTurn.id !== this.players[5].id) {
-                this.intervalId = setInterval(() => {
-                    this.askCard();
-                }, 2000);
-            }
+            this.intervalId = setInterval(() => {
+                this.askCard();
+            }, 10);
+
+            // if (this.playerTurn.id !== this.players[5].id) {
+            //     this.intervalId = setInterval(() => {
+            //         this.askCard();
+            //     }, 100);
+            // }
         }
     },
     mounted() {
@@ -244,6 +297,9 @@ export default {
         players: function (value) {
             this.hexagonPlayersGrid(value);
             this.updatePlayerCards(value);
+
+            value.forEach(p => p.declareCallback = this.declareCardGroup);
+            window.players = value;
         },
         playerTurn: function(playerTurn) {
             this.updatePlayerTurn(playerTurn);

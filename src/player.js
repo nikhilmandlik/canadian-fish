@@ -6,7 +6,6 @@ export default class Player {
         this.deck = deck,
         this.id = uuidv4();
         this.cards = this.sortCards(cards);
-        this.ownCards = JSON.parse(JSON.stringify(cards));
         this.cardGroups = [];
         this.isUser = isUser;
         this.name = name;
@@ -16,11 +15,45 @@ export default class Player {
        this.addMissingCards();
     }
 
+    addCard(card) {
+        this.cards.forEach(c => {
+            if (c.face === card.face && c.value.value === card.value.value) {
+                c.isPresent = true;
+
+                delete c.has;
+                delete c.hasNot;
+            }
+        });
+    }
+
+    addMissingCards() {
+        this.cards.forEach(card => {
+            const cardGroup = card.cardGroup;
+            const cards = this.cardGroups[cardGroup] || JSON.parse(JSON.stringify(this.deck.groups[cardGroup]));
+            cards.forEach(c => {
+                if (card.value.value === c.value.value && card.face === c.face) {
+                    c.isPresent = true;
+                }
+            });
+
+            this.cardGroups[cardGroup] = cards;
+        });
+
+        this.cards = Object.values(this.cardGroups).flat();
+    }
+
     askCard(players) {
+        this.checkForDeclare();
+
         let card;
         let playerFromId;
+        let missingCardsIndices = [];
 
-        let firstNotPresentIndex = -1;
+        if (!this.cards.length) {
+            this.endGame = true;
+
+            return;
+        }
 
         const knownCards = this.cards.some((c, i) => {
             if (c.has) {
@@ -28,19 +61,25 @@ export default class Player {
                 playerFromId = c.has;
             }
 
-            if (firstNotPresentIndex < 0 && !c.isPresent) {
-                firstNotPresentIndex = i;
+            if (!c.isPresent) {
+                missingCardsIndices.push(i);
             }
 
             return c.has;
         });
 
-        if (!knownCards) {
-            card = this.cards[firstNotPresentIndex];
+        if (!knownCards && missingCardsIndices.length > 0) {
+            missingCardsIndices.forEach(index => {
+                if (card && playerFromId) {
+                    return;
+                }
 
-            // console.log('not known', card.face, card.value.value, card.hasNot);
-            const index = getRandomIntInclusive(0, players.length - 1);
-            playerFromId = players[index];
+                let c = this.cards[index];
+                playerFromId = this.getMissingPlayerId(players, c.hasNot);
+                if (playerFromId) {
+                    card = c;
+                }
+            });
         }
 
         return {
@@ -50,12 +89,59 @@ export default class Player {
         };
     }
 
+    checkForDeclare() {
+        const cardGroups = {};
+        this.cards.forEach(card => {
+            const cardGroup = card.cardGroup;
+            const cardGroupDeclare = Boolean(card.isPresent || (card.hasNot && card.hasNot.size === 3));
+            if (cardGroups[cardGroup] === undefined) {
+                cardGroups[cardGroup] = cardGroupDeclare;
+            }
+
+            // console.log('cardGroup', cardGroup, cardGroupDeclare, cardGroups[cardGroup]);
+
+            cardGroups[cardGroup] = cardGroups[cardGroup] && cardGroupDeclare;
+        });
+
+        Object.entries(cardGroups)
+            .forEach(([cardGroupName, declare]) => {
+                if (declare) {
+                    this.declareGroup(cardGroupName);
+                }
+            });
+    }
+
+    declareGroup(cardGroupName) {
+        if (this.declareCallback) {
+            this.declareCallback(this, cardGroupName);
+            this.removeCardGroupCards(cardGroupName);
+        }
+    }
+
     findCard(card) {
         return this.cards.find(c => c.face === card.face && c.value.value === card.value.value);
     }
 
+    getMissingPlayerId(playersFromOtherTeam, playersDoesnotHaveCard =[]) {
+        if (playersFromOtherTeam.length === playersDoesnotHaveCard.size) {
+            console.log('other team does not have this card');
+            return;
+        }
+
+        let players;
+        if (!playersDoesnotHaveCard || !playersDoesnotHaveCard.length) {
+            players = playersFromOtherTeam;
+        } else {
+            players = playersFromOtherTeam.filter(pid => !playersDoesnotHaveCard.has(pid));
+        }
+
+        const index = getRandomIntInclusive(0, players.length - 1);
+
+        return players[index];
+    }
+
     recordCard(card, playerFromId, playerToId, hasCard) {
-        if (playerFromId === this.id || playerToId === this.id) {
+        if (playerFromId === this.id || (hasCard && playerToId === this.id)) {
             return;
         }
 
@@ -74,17 +160,6 @@ export default class Player {
         });
     }
 
-    addCard(card) {
-        this.cards.forEach(c => {
-            if (c.face === card.face && c.value.value === card.value.value) {
-                c.isPresent = true;
-
-                delete c.has;
-                delete c.hasNot;
-            }
-        });
-    }
-
     removeCard(card) {
         let cardGroupCount = 0;
         let found = false;
@@ -99,7 +174,7 @@ export default class Player {
             }
         });
 
-        if (cardGroupCount === 1) {
+        if (found && cardGroupCount === 1) {
             this.removeCardGroupCards(card.cardGroup);
         }
 
@@ -108,22 +183,6 @@ export default class Player {
 
     removeCardGroupCards(cardGroup) {
         this.cards = this.cards.filter(c => c.cardGroup !== cardGroup);
-    }
-
-    addMissingCards() {
-        this.cards.forEach(card => {
-            const cardGroup = card.cardGroup;
-            const cards = this.cardGroups[cardGroup] || JSON.parse(JSON.stringify(this.deck.groups[cardGroup]));
-            cards.forEach(c => {
-                if (card.value.value === c.value.value && card.face === c.face) {
-                    c.isPresent = true;
-                }
-            });
-
-            this.cardGroups[cardGroup] = cards;
-        });
-
-        this.cards = Object.values(this.cardGroups).flat();
     }
 
     sortCards(cards) {
