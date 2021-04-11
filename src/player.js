@@ -43,7 +43,7 @@ export default class Player {
     }
 
     askCard(players) {
-        this.checkForDeclare();
+        this.checkForDeclare(players);
 
         let card;
         let playerFromId;
@@ -82,6 +82,11 @@ export default class Player {
             });
         }
 
+        if (!playerFromId) {
+            // this should not happen
+            console.error('playerFromId', this);
+        }
+
         return {
             playerTo: this,
             playerFromId,
@@ -89,16 +94,15 @@ export default class Player {
         };
     }
 
-    checkForDeclare() {
+    checkForDeclare(players) {
         const cardGroups = {};
         this.cards.forEach(card => {
             const cardGroup = card.cardGroup;
-            const cardGroupDeclare = Boolean(card.isPresent || (card.hasNot && card.hasNot.size === 3));
+            const otherTeamDoesNothaveCard = card.hasNot && players.every(p => card.hasNot.has(p));
+            const cardGroupDeclare = Boolean(card.isPresent || otherTeamDoesNothaveCard);
             if (cardGroups[cardGroup] === undefined) {
                 cardGroups[cardGroup] = cardGroupDeclare;
             }
-
-            // console.log('cardGroup', cardGroup, cardGroupDeclare, cardGroups[cardGroup]);
 
             cardGroups[cardGroup] = cardGroups[cardGroup] && cardGroupDeclare;
         });
@@ -122,17 +126,16 @@ export default class Player {
         return this.cards.find(c => c.face === card.face && c.value.value === card.value.value);
     }
 
-    getMissingPlayerId(playersFromOtherTeam, playersDoesnotHaveCard =[]) {
-        if (playersFromOtherTeam.length === playersDoesnotHaveCard.size) {
-            console.log('other team does not have this card');
-            return;
-        }
-
+    getMissingPlayerId(playersFromOtherTeam, playersDoesnotHaveCard = new Set()) {
         let players;
-        if (!playersDoesnotHaveCard || !playersDoesnotHaveCard.length) {
+        if (!playersDoesnotHaveCard.size) {
             players = playersFromOtherTeam;
         } else {
             players = playersFromOtherTeam.filter(pid => !playersDoesnotHaveCard.has(pid));
+        }
+
+        if (!players.length) {
+            return;
         }
 
         const index = getRandomIntInclusive(0, players.length - 1);
@@ -149,13 +152,17 @@ export default class Player {
             if (c.face === card.face && c.value.value === card.value.value) {
                 if (hasCard) {
                     c.has = playerToId;
-                } else if (c.hasNot === undefined) {
-                    const hasNot = new Set();
-                    hasNot.add(playerFromId);
-                    c.hasNot = hasNot;
-                } else {
-                    c.hasNot.add(playerFromId);
+                    if (c.hasNot && c.hasNot.has(playerToId)) {
+                        c.hasNot.delete(playerToId);
+                    }
                 }
+
+                if (c.hasNot === undefined) {
+                    const hasNot = new Set();
+                    c.hasNot = hasNot;
+                }
+
+                c.hasNot.add(playerFromId);
             }
         });
     }

@@ -154,26 +154,34 @@ export default {
             return {};
         },
         declareCardGroup(player, cardGroupName) {
+            if (!cardGroupName) {
+                return;
+            }
+
             let success = true;
             this.players.forEach(p => {
                 if (p.team !== player.team) {
                     p.cards.forEach(c => {
                         if (c.cardGroup === cardGroupName && c.isPresent) {
                             success = false;
-                            console.log(player.name, c.face, c.value.value);
+
+                            console.error('This is error in AI, false declare,');
+                            console.error(' by player', player.name);
+                            console.error(' of Card group', cardGroupName);
                         }
                     });
                 }
             });
 
             // TODO: update game score based on success
-
             const successMsg = success ? 'successfully declared' : 'failed to declare';
             this.setSysMsg(`${player.name} has ${successMsg} ${cardGroupName}`);
 
             this.players.forEach(player => {
                 player.removeCardGroupCards(cardGroupName);
             });
+
+            this.$set(this.playerCards, this.players[5].cards);
         },
         deselectCard() {
             this.selectedCard = undefined;
