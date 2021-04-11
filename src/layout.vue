@@ -6,7 +6,7 @@
                 <div
                     v-for="player in playersGrid"
                     :key="player.id"
-                    :class="[{'player': player.name}, player.number ? `player-${player.number.toString()}` : '', player.className, {'has-turn': playerTurn.id === player.id}]"
+                    :class="[{'player': player.name}, player.number ? `player-${player.number.toString()}` : '', player.className, {'has-turn': playerTurn && playerTurn.id === player.id}]"
                 >
                     <div v-if="player.name"
                         class="player-info"
@@ -102,9 +102,16 @@ export default {
                 : 'cards-wrapper cards-collapse';
         },
         userCards() {
-            return this.hideMissing
-                ? this.playerCards.filter(c => c.isPresent)
-                : this.playerCards;
+            let playerCards = [];
+            this.playersGrid.forEach(p => {
+                if (p.isUser) {
+                    playerCards = this.hideMissing
+                        ? p.cards.filter(c => c.isPresent)
+                        : p.cards;
+                }
+            });
+
+            return playerCards;
         },
         getSysMsgs() {
             return this.sysMsgs;
@@ -113,6 +120,10 @@ export default {
     methods: {
         toCssClassName: toCssClassName,
         askCard() {
+            if (!this.playerTurn) {
+                return;
+            }
+
             const players = this.players
                 .filter(p => p.team !== this.playerTurn.team)
                 .map(p => p.id);
@@ -216,7 +227,7 @@ export default {
                 players[2],
                 players[3], { className: 'main-msg' }, players[1],
                 players[4], players[0],
-                 players[5],
+                players[5],
             ];
         },
         hideMissingCards() {
@@ -225,7 +236,13 @@ export default {
         passTurnToTeamMember() {
             const teamMembers = this.players.filter(p => p.team === this.playerTurn.team && !p.endGame);
             if(!teamMembers.length) {
-                this.endGame();
+                const otherTeamMembers = this.players.filter(p => p.team !== this.playerTurn.team && !p.endGame);
+                if (!otherTeamMembers.length) {
+                    this.endGame();
+                }
+
+                clearInterval(this.intervalId);
+                this.$emit('updatePlayerTurn', otherTeamMembers[0]);
 
                 return;
             }

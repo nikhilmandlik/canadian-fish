@@ -144,7 +144,7 @@ export default class Player {
     }
 
     recordCard(card, playerFromId, playerToId, hasCard) {
-        if (playerFromId === this.id || (hasCard && playerToId === this.id)) {
+        if (hasCard && playerToId === this.id) {
             return;
         }
 
