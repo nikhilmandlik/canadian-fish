@@ -194,6 +194,11 @@
     display: flex;
     justify-content: center;
     margin-bottom: 45px;
+
+    .enabled {
+        background-color: #868686;
+        color: white;
+    }
 }
 
 .player-msg {

@@ -48,6 +48,11 @@
             <button>
                 Declare Suite
             </button>
+            <button @click="toggleAI"
+                :class="{'enabled' : isAIOn}"
+            >
+                Toggle AI vs AI
+            </button>
         </div>
         <div class="player-msg">{{ userMsg }}</div>
         <div v-if="players.length > 0"
@@ -87,6 +92,7 @@ export default {
             columns: ['2','3','4','5','6','7','8','9','10', 'J', 'Q', 'K', 'A'],
             expand: false,
             hideMissing: false,
+            isAIOn: false,
             playersGrid: [],
             playerCards: [],
             selectedCard: undefined,
@@ -125,12 +131,11 @@ export default {
             }
 
             const players = this.players
-                .filter(p => p.team !== this.playerTurn.team)
+                .filter(p => p.team !== this.playerTurn.team && !p.endGame)
                 .map(p => p.id);
 
             const cardObject = this.playerTurn.askCard(players);
             if (!cardObject) {
-                // check if other team member has card and pass turn to them else end game;
                 this.passTurnToTeamMember();
 
                 return;
@@ -296,6 +301,13 @@ export default {
         teamName(player) {
             return player.team ? 'Team A' : 'Team B';
         },
+        toggleAI() {
+            this.isAIOn= !this.isAIOn;
+
+            if (this.isAIOn && this.playerTurn.id === this.players[5].id) {
+                this.periodicallyAskCard();
+            }
+        },
         updatePlayerCards(players) {
             if (!players || !players.length) {
                 return [];
@@ -304,15 +316,15 @@ export default {
             this.playerCards = players[5].cards;
         },
         updatePlayerTurn(playerTurn) {
+            if (this.isAIOn || this.playerTurn.id !== this.players[5].id) {
+                this.periodicallyAskCard();
+            }
+        },
+        periodicallyAskCard() {
+            clearInterval(this.intervalId);
             this.intervalId = setInterval(() => {
                 this.askCard();
-            }, 10);
-
-            // if (this.playerTurn.id !== this.players[5].id) {
-            //     this.intervalId = setInterval(() => {
-            //         this.askCard();
-            //     }, 100);
-            // }
+            }, 5000);
         }
     },
     mounted() {

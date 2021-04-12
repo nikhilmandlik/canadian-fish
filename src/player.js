@@ -109,7 +109,7 @@ export default class Player {
 
         Object.entries(cardGroups)
             .forEach(([cardGroupName, declare]) => {
-                if (declare) {
+                if (!players.length || declare) {
                     this.declareGroup(cardGroupName);
                 }
             });
